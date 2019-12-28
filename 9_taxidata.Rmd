@@ -1,0 +1,90 @@
+---
+title: "9 택시 데이타 분석"
+output: html_notebook
+---
+
+sparkR을 먼저 설치한다.
+
+
+```{r}
+install.packages('C:/spark/R/lib/sparkr.zip', repos=NULL, type='win.binary')
+
+library(SparkR)
+
+
+```
+
+spark를 실행하기 위한 환경 변수 지정
+
+```{r}
+Sys.setenv(SPARK_HOME='C:/spark')
+Sys.setenv(HADOOP_HOME='C:/hadoop')
+Sys.setenv(JAVA_HOME='C:/Program Files/Java/jdk1.8.0_231')
+
+```
+
+sparkR 시작
+
+```{r}
+sparkR.session(master="local[*]", sparkConfig = list(spark.driver.memory="2g"))
+
+
+
+
+```
+
+```{r}
+t<-read.df('data/TaxiMach_Link_Dataset_Full_201611.txt', 'csv', header=T)
+
+str(t)
+
+```
+
+```{r}
+t2<-filter(t, (t$Time == 46 | t$Time==47) & t$Day == 6)
+t3<-summarize(groupBy(t2, t2$T_Link_ID), count=sum(t2$CntEmp))
+t4<-collect(t3)
+str(t4)
+head(t4, 10)
+```
+
+
+공차횟수가 많은 지역을 지도에 표시
+
+```{r}
+cr<-read.csv('data/coord.txt', header=T)
+
+str(cr)
+
+colnames(cr)[1]<-'T_Link_ID'
+unique(cr$T_Link_ID)
+str(cr)
+
+t5<-merge(t4, cr, by='T_Link_ID')
+
+str(t5)
+```
+
+```{r}
+vacant<-t5
+vacant$lng<-(vacant$X_MAX + vacant$X_MIN)/2
+vacant$lat<-(vacant$Y_MAX + vacant$Y_MIN)/2
+
+library(leaflet)
+library(ggmap)
+
+register_google(key="AIzaSyBUFrKDpobNTCSTxrj0hP0RjAM5U6d6HVw")
+
+somePlace <- ggmap::geocode("Seoul") 
+
+somePlace
+
+leaflet(somePlace) %>% addTiles() %>% addMarkers() %>%
+  addCircles(lng=~vacant$lng, lat=~vacant$lat, radius=5)
+
+
+
+
+```
+
+
